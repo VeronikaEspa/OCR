@@ -5,40 +5,19 @@ from preprocess import preprocess_image, preprocess_image_from_pil
 import os
 import matplotlib.pyplot as plt
 from PIL import Image
-from config import TESTING_PATH
+from config import TESTING_PATH, MODEL_WEIGHTS
 import cv2
 
 def test_model_predictions():
-    """
-    Realizar predicciones en todas las imágenes de letras individuales.
-    """
-    subfolder = 'letters'
-    test_images = get_test_images(TESTING_PATH, subfolder)
-
-    if not test_images:
-        print("No hay imágenes de letras para procesar.")
-        return
-
-    model = load_trained_model()
-    if model is None:
-        return
-
-    class_names = [chr(i) for i in range(65, 91)]  # Letras A-Z
+    model = load_model("models/ocr_model_best.weights.h5")
+    class_names = [chr(i) for i in range(65, 91)] + [chr(i) for i in range(97, 123)]
+    test_images = [f for f in os.listdir('test_images') if f.endswith('.png')]
 
     for image_path in test_images:
-        print(f"Procesando: {image_path}")
-        processed_img = preprocess_image(image_path)
-        prediction = model.predict(processed_img)
-        predicted_class = np.argmax(prediction, axis=1)[0]
-        predicted_letter = class_names[predicted_class]
-        print(f"Predicción: {predicted_letter}")
-
-        # Mostrar imagen
-        img = Image.open(image_path)
-        plt.imshow(img, cmap='gray')
-        plt.title(f"Predicción: {predicted_letter}")
-        plt.axis('off')
-        plt.show()
+        img = preprocess_image(os.path.join('test_images', image_path))
+        prediction = model.predict(img)
+        predicted_class = np.argmax(prediction)
+        print(f"Predicción: {class_names[predicted_class]}")
 
 def splitting_letters_of_a_word():
     """
@@ -84,13 +63,12 @@ def load_trained_model():
     """
     Cargar el modelo entrenado completo.
     """
-    model_path = "models/ocr_model.h5"
-    if not os.path.exists(model_path):
-        print(f"El archivo del modelo {model_path} no existe.")
+    if not os.path.exists(MODEL_WEIGHTS):
+        print(f"El archivo del modelo {MODEL_WEIGHTS} no existe.")
         return None
 
     try:
-        model = load_model(model_path)
+        model = load_model(MODEL_WEIGHTS)
         return model
     except Exception as e:
         print(f"Error al cargar el modelo: {e}")

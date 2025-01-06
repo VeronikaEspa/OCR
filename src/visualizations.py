@@ -8,11 +8,14 @@ import seaborn as sns
 from sklearn.metrics import classification_report, confusion_matrix, precision_recall_curve, average_precision_score
 from tensorflow.keras.models import load_model
 from config import DATA_PATH, MODEL_WEIGHTS, HISTORY_PATH
-from preprocess import preprocess_data
+from train_model import preprocess_and_split_data  # Asegúrate de que esta función exista y sea correcta
 
 def plot_training_history(history_path=HISTORY_PATH):
     """
     Graficar la precisión y la pérdida durante el entrenamiento.
+    
+    Args:
+        history_path (str): Ruta al archivo del historial de entrenamiento.
     """
     if not os.path.exists(history_path):
         print(f"El archivo de historial de entrenamiento {history_path} no existe.")
@@ -55,13 +58,19 @@ def plot_training_history(history_path=HISTORY_PATH):
 def plot_confusion_matrix(model, X_test, y_test, class_names):
     """
     Generar y mostrar la matriz de confusión.
+    
+    Args:
+        model (tensorflow.keras.Model): Modelo entrenado.
+        X_test (np.ndarray): Datos de prueba.
+        y_test (np.ndarray): Etiquetas de prueba (one-hot).
+        class_names (list): Lista de nombres de clases.
     """
     y_pred = np.argmax(model.predict(X_test), axis=1)
     y_true = np.argmax(y_test, axis=1)
     
     cm = confusion_matrix(y_true, y_pred)
     
-    plt.figure(figsize=(10, 8))
+    plt.figure(figsize=(12, 10))
     sns.heatmap(cm, annot=True, fmt='d', cmap='Blues',
                 xticklabels=class_names,
                 yticklabels=class_names)
@@ -73,6 +82,12 @@ def plot_confusion_matrix(model, X_test, y_test, class_names):
 def display_classification_report(model, X_test, y_test, class_names):
     """
     Mostrar el reporte de clasificación con precisión, recall y F1-score.
+    
+    Args:
+        model (tensorflow.keras.Model): Modelo entrenado.
+        X_test (np.ndarray): Datos de prueba.
+        y_test (np.ndarray): Etiquetas de prueba (one-hot).
+        class_names (list): Lista de nombres de clases.
     """
     y_pred = np.argmax(model.predict(X_test), axis=1)
     y_true = np.argmax(y_test, axis=1)
@@ -83,7 +98,13 @@ def display_classification_report(model, X_test, y_test, class_names):
 
 def plot_precision_recall(model, X_test, y_test, class_names):
     """
-    Plot Precision-Recall curves for each class.
+    Graficar las curvas Precision-Recall para cada clase.
+    
+    Args:
+        model (tensorflow.keras.Model): Modelo entrenado.
+        X_test (np.ndarray): Datos de prueba.
+        y_test (np.ndarray): Etiquetas de prueba (one-hot).
+        class_names (list): Lista de nombres de clases.
     """
     y_scores = model.predict(X_test)
     y_true = np.argmax(y_test, axis=1)
@@ -98,7 +119,7 @@ def plot_precision_recall(model, X_test, y_test, class_names):
     plt.xlabel('Recall')
     plt.ylabel('Precision')
     plt.title('Curvas de Precisión-Recall por Clase')
-    plt.legend(loc='best')
+    plt.legend(loc='best', fontsize='small', ncol=2)
     plt.grid(True)
     plt.show()
 
@@ -106,13 +127,12 @@ def evaluate_model():
     """
     Evaluar el modelo incluyendo todas las visualizaciones y métricas adicionales.
     """
-    
     # Verificar existencia de archivos
     if not os.path.exists(HISTORY_PATH):
         print(f"El archivo de historial de entrenamiento {HISTORY_PATH} no existe.")
         return
-    if not os.path.exists("models/ocr_model.h5"):
-        print(f"El archivo del modelo models/ocr_model.h5 no existe.")
+    if not os.path.exists(MODEL_WEIGHTS):
+        print(f"El archivo del modelo {MODEL_WEIGHTS} no existe.")
         return
     if not os.path.exists(DATA_PATH):
         print(f"El archivo de datos {DATA_PATH} no existe.")
@@ -121,14 +141,14 @@ def evaluate_model():
     # Graficar historial de entrenamiento
     plot_training_history(HISTORY_PATH)
     
-    # Preprocesar datos para obtener X_test y y_test
-    X_train, X_test, y_train, y_test, num_classes = preprocess_data(DATA_PATH)
+    # Cargar y preprocesar los datos
+    X_train, X_test, y_train, y_test, num_classes = preprocess_and_split_data(DATA_PATH, fraction=0.5, zip_path=None, target_size=(28, 28))
     
     # Cargar el modelo completo
-    model = load_model("models/ocr_model.h5")
+    model = load_model(MODEL_WEIGHTS)
     
-    # Definir nombres de clases (A-Z)
-    class_names = [chr(i) for i in range(65, 65 + num_classes)]  # ['A', 'B', ..., 'Z']
+    # Definir nombres de clases (A-Z y a-z)
+    class_names = [chr(i) for i in range(65, 91)] + [chr(i) for i in range(97, 123)]  # A-Z y a-z
     
     # Mostrar reporte de clasificación
     display_classification_report(model, X_test, y_test, class_names)

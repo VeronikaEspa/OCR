@@ -1,7 +1,7 @@
 # menu.py
 from train_model import train_ocr_model
 from predict import test_model_predictions, splitting_letters_of_a_word
-from visualizations import plot_training_history, evaluate_model
+from visualizations import evaluate_model
 
 def display_menu():
     """
@@ -13,9 +13,8 @@ def display_menu():
         print("1. Entrenar modelo y guardar resultado")
         print("2. Predecir letra sola")
         print("3. Predecir palabra")
-        print("4. Visualizar historial de entrenamiento")
-        print("5. Evaluar modelo")
-        print("6. Salir")
+        print("4. Evaluar modelo")
+        print("5. Salir")
         option = input("Seleccione una opción: ")
 
         if option == "1":
@@ -25,10 +24,8 @@ def display_menu():
         elif option == "3":
             splitting_letters_of_a_word()
         elif option == "4":
-            plot_training_history()
-        elif option == "5":
             evaluate_model()
-        elif option == "6":
+        elif option == "5":
             print("\u00a1Hasta luego!")
             break
         else:

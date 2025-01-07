@@ -7,8 +7,8 @@ import numpy as np
 import seaborn as sns
 from sklearn.metrics import classification_report, confusion_matrix, precision_recall_curve, average_precision_score
 from tensorflow.keras.models import load_model
-from config import DATA_PATH, MODEL_WEIGHTS, HISTORY_PATH
-from train_model import preprocess_and_split_data  # Asegúrate de que esta función exista y sea correcta
+from config import DATA_PATH, DATA_ZIP_PATH, MODEL_WEIGHTS, HISTORY_PATH
+from train_model import preprocess_and_split_data, load_npz_data, load_zip_data
 
 def plot_training_history(history_path=HISTORY_PATH):
     """
@@ -137,44 +137,55 @@ def evaluate_model():
     if not os.path.exists(DATA_PATH):
         print(f"El archivo de datos {DATA_PATH} no existe.")
         return
-    
+
     # Graficar historial de entrenamiento
     plot_training_history(HISTORY_PATH)
-    
+
     # Cargar y preprocesar los datos
-    X_train, X_test, y_train, y_test, num_classes = preprocess_and_split_data(DATA_PATH, fraction=0.5, zip_path=None, target_size=(28, 28))
-    
+    npz_X, npz_y = load_npz_data(DATA_PATH, fraction=0.5)
+    zip_X, zip_y, label_to_index = load_zip_data(DATA_ZIP_PATH, fraction=0.5, target_size=(28, 28))
+
+    if npz_X.size == 0 or zip_X.size == 0:
+        print("No se pudieron cargar datos de uno o ambos archivos.")
+        return
+
+    X_train, X_test, y_train, y_test, num_classes = preprocess_and_split_data(npz_X, npz_y, zip_X, zip_y)
+
+    # Convertir etiquetas a one-hot encoding si no lo están
+    y_train = np.eye(num_classes)[y_train] if y_train.ndim == 1 else y_train
+    y_test = np.eye(num_classes)[y_test] if y_test.ndim == 1 else y_test
+
     # Cargar el modelo completo
     model = load_model(MODEL_WEIGHTS)
-    
-    # Definir nombres de clases (A-Z y a-z)
-    class_names = [chr(i) for i in range(65, 91)] + [chr(i) for i in range(97, 123)]  # A-Z y a-z
-    
+
+    # Obtener los nombres de las clases desde el mapeo de etiquetas
+    class_names = [label for label, _ in sorted(label_to_index.items(), key=lambda item: item[1])]
+
     # Mostrar reporte de clasificación
     display_classification_report(model, X_test, y_test, class_names)
-    
+
     # Generar y mostrar matriz de confusión
     plot_confusion_matrix(model, X_test, y_test, class_names)
-    
-    # Plot Precision-Recall curves
+
+    # Graficar curvas Precision-Recall
     plot_precision_recall(model, X_test, y_test, class_names)
-    
+
     # Calcular y mostrar métricas de fiabilidad
     y_pred = np.argmax(model.predict(X_test), axis=1)
     y_true = np.argmax(y_test, axis=1)
-    
+
     overall_accuracy = np.mean(y_pred == y_true) * 100
     print(f"Exactitud Global del Modelo: {overall_accuracy:.2f}%")
-    
+
     report = classification_report(y_true, y_pred, target_names=class_names, output_dict=True)
     precision_avg = np.mean([report[cls]['precision'] for cls in class_names])
     recall_avg = np.mean([report[cls]['recall'] for cls in class_names])
     f1_avg = np.mean([report[cls]['f1-score'] for cls in class_names])
-    
+
     print(f"Precisión Promedio: {precision_avg * 100:.2f}%")
     print(f"Recall Promedio: {recall_avg * 100:.2f}%")
     print(f"F1-Score Promedio: {f1_avg * 100:.2f}%")
-    
+
     # Recomendación basada en métricas
     if overall_accuracy < 90:
         print("El modelo necesita mejoras. Considera recolectar más datos, ajustar hiperparámetros o mejorar la arquitectura del modelo.")

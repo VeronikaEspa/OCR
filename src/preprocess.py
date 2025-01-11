@@ -2,6 +2,8 @@
 import numpy as np
 from PIL import Image
 from config import IMAGE_SIZE
+from tensorflow.keras.utils import to_categorical
+from sklearn.model_selection import train_test_split
 
 def preprocess_image(image_path, image_size=IMAGE_SIZE):
     """
@@ -86,11 +88,8 @@ def preprocess_data(data_path):
     # Normalizar
     X = X.astype('float32') / 255.0  # Normalizar
     X = np.expand_dims(X, axis=-1)
-    
-    from tensorflow.keras.utils import to_categorical
     y = to_categorical(y)
     
-    from sklearn.model_selection import train_test_split
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
     
     num_classes = y.shape[1]  # Determinar el número de clases

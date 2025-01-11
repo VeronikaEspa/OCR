@@ -62,7 +62,6 @@ def test_model_predictions():
 
             print(f"Predicción para {image_path}: {predicted_letter}")
 
-
 def splitting_letters_of_a_word():
     subfolder = 'words'
     word_images = get_test_images(TESTING_PATH, subfolder)
@@ -78,10 +77,14 @@ def splitting_letters_of_a_word():
     class_names = [chr(i) for i in range(65, 91)]
 
     for word_image_path in word_images:
-        img = Image.open(word_image_path).convert('L')
+        try:
+            img = Image.open(word_image_path).convert('L')
+        except Exception as e:
+            print(f"Error al abrir la imagen {word_image_path}: {e}")
+            continue
+
         img_array = np.array(img)
 
-        # Segmentar letras
         _, binary = cv2.threshold(img_array, 128, 255, cv2.THRESH_BINARY_INV | cv2.THRESH_OTSU)
         contours, _ = cv2.findContours(binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         bounding_boxes = sorted([cv2.boundingRect(c) for c in contours], key=lambda b: b[0])
@@ -91,7 +94,6 @@ def splitting_letters_of_a_word():
             x, y, w, h = box
             letter = img_array[y:y+h, x:x+w]
             
-            # Invertir colores de las letras
             letter = cv2.bitwise_not(letter)
             
             letter = Image.fromarray(letter).resize((28, 28))
@@ -99,10 +101,31 @@ def splitting_letters_of_a_word():
 
             prediction = model.predict(processed_img)
             predicted_class = np.argmax(prediction, axis=1)[0]
-            predicted_letter = class_names[predicted_class]
+            if predicted_class < len(class_names):
+                predicted_letter = class_names[predicted_class]
+            else:
+                predicted_letter = '?'
             letters.append(predicted_letter)
+        
+        image_name_with_ext = os.path.basename(word_image_path)
+        image_name, _ = os.path.splitext(image_name_with_ext)
 
-        print(f"Palabra procesada: {''.join(letters)} del archivo {word_image_path}")
+        actual_word = image_name.upper()
+        predicted_word = ''.join(letters).upper()
+
+        correct_letters = 0
+        total_letters = min(len(actual_word), len(predicted_word))
+
+        for i in range(total_letters):
+            if actual_word[i] == predicted_word[i]:
+                correct_letters += 1
+
+        if len(actual_word) == 0:
+            accuracy = 0.0
+        else:
+            accuracy = (correct_letters / len(actual_word)) * 100
+
+        print(f"Palabra procesada: {predicted_word} del archivo {image_name_with_ext} - Exactitud: {accuracy:.2f}%")
 
 def load_trained_model():
     """

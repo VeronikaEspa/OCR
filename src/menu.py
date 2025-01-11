@@ -2,6 +2,12 @@
 from train_model import train_ocr_model
 from predict import test_model_predictions, splitting_letters_of_a_word
 from visualizations import evaluate_model
+from performance import medir_tiempo
+
+train_ocr_model = medir_tiempo(train_ocr_model)
+test_model_predictions = medir_tiempo(test_model_predictions)
+splitting_letters_of_a_word = medir_tiempo(splitting_letters_of_a_word)
+evaluate_model = medir_tiempo(evaluate_model)
 
 def display_menu():
     """

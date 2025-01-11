@@ -1,5 +1,6 @@
 # model.py
 from tensorflow.keras import layers, models, regularizers
+from performance import medir_tiempo
 
 def build_model(input_shape, num_classes):
     """
@@ -50,3 +51,5 @@ def build_model(input_shape, num_classes):
     model.add(layers.Dense(num_classes, activation='softmax'))
     
     return model
+
+build_model = medir_tiempo(build_model) 

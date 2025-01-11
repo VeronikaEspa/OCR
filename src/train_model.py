@@ -2,9 +2,7 @@
 
 from config import MODEL_WEIGHTS, HISTORY_PATH, DATA_PATH, DATA_ZIP_PATH, EPOCHS, MODEL_WEIGHTS_BEST
 from model import build_model
-import os
-import pickle
-import numpy as np
+from tensorflow.keras.datasets import mnist
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.callbacks import ReduceLROnPlateau, EarlyStopping, ModelCheckpoint
@@ -13,8 +11,14 @@ import zipfile
 from io import BytesIO
 from PIL import Image
 import random
+import os
+import pickle
+import numpy as np
 from sklearn.model_selection import train_test_split
 import matplotlib.pyplot as plt
+
+from performance import medir_tiempo
+
 
 def load_npz_data(npz_path, fraction=1.0):
     """
@@ -46,6 +50,7 @@ def load_npz_data(npz_path, fraction=1.0):
     print(f"Cargado {X_selected.shape[0]} muestras del archivo .npz.")
     return X_selected, y_selected
 
+
 def get_resampling_filter():
     """
     Obtiene el filtro de remuestreo adecuado según la versión de Pillow instalada.
@@ -58,6 +63,7 @@ def get_resampling_filter():
     except AttributeError:
         resampling_filter = Image.LANCZOS
     return resampling_filter
+
 
 def load_zip_data(zip_path, fraction=1.0, target_size=(28, 28)):
     """
@@ -123,7 +129,8 @@ def load_zip_data(zip_path, fraction=1.0, target_size=(28, 28)):
 
     return X, y, label_to_index
 
-def preprocess_and_split_data(npz_X, npz_y, zip_X, zip_y):
+
+def preprocess_and_split_data(npz_X, npz_y, zip_X, zip_y, mnist_X=None, mnist_y=None):
     """
     Divide los datos cargados en conjuntos de entrenamiento y prueba.
 
@@ -132,18 +139,24 @@ def preprocess_and_split_data(npz_X, npz_y, zip_X, zip_y):
         npz_y (np.ndarray): Etiquetas del archivo .npz.
         zip_X (np.ndarray): Imágenes del archivo .zip.
         zip_y (np.ndarray): Etiquetas del archivo .zip.
+        mnist_X (np.ndarray, optional): Imágenes de MNIST.
+        mnist_y (np.ndarray, optional): Etiquetas de MNIST.
 
     Returns:
         Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, int]:
             X_train, X_test, y_train, y_test, num_classes
     """
-    X_data = np.concatenate((npz_X, zip_X), axis=0)
-    y_data = np.concatenate((npz_y, zip_y), axis=0)
+    if mnist_X is not None and mnist_y is not None:
+        X_data = np.concatenate((npz_X, zip_X, mnist_X), axis=0)
+        y_data = np.concatenate((npz_y, zip_y, mnist_y), axis=0)
+    else:
+        X_data = np.concatenate((npz_X, zip_X), axis=0)
+        y_data = np.concatenate((npz_y, zip_y), axis=0)
 
     unique_classes, class_counts = np.unique(y_data, return_counts=True)
     print("\nDistribución inicial de clases:")
     for cls, count in zip(unique_classes, class_counts):
-        class_name = chr(65 + cls) if cls < 26 else chr(97 + (cls - 26))
+        class_name = chr(48 + cls) if cls < 10 else f"Clase {cls}"
         print(f"Clase {class_name}: {count} imágenes")
 
     X_train, X_test, y_train, y_test = train_test_split(
@@ -153,7 +166,7 @@ def preprocess_and_split_data(npz_X, npz_y, zip_X, zip_y):
     unique_classes_train, class_counts_train = np.unique(y_train, return_counts=True)
     print("\nDistribución de clases en el conjunto de entrenamiento:")
     for cls, count in zip(unique_classes_train, class_counts_train):
-        class_name = chr(65 + cls) if cls < 26 else chr(97 + (cls - 26))
+        class_name = chr(48 + cls) if cls < 10 else f"Clase {cls}"
         print(f"Clase {class_name}: {count} imágenes")
 
     num_classes = len(unique_classes)
@@ -163,6 +176,7 @@ def preprocess_and_split_data(npz_X, npz_y, zip_X, zip_y):
     print(f"Número de clases: {num_classes}.")
 
     return X_train, X_test, y_train, y_test, num_classes
+
 
 def preprocess_data(X_train, X_test, y_train, y_test, num_classes):
     """
@@ -191,31 +205,62 @@ def preprocess_data(X_train, X_test, y_train, y_test, num_classes):
 
     return X_train_prep, X_test_prep, y_train_prep, y_test_prep, num_classes
 
+
+def load_mnist_data():
+    """
+    Carga y preprocesa el dataset MNIST.
+
+    Returns:
+        Tuple[np.ndarray, np.ndarray]: Imágenes y etiquetas de MNIST.
+    """
+    print("\nCargando el dataset MNIST...")
+    (mnist_X_train, mnist_y_train), (mnist_X_test, mnist_y_test) = mnist.load_data()
+    mnist_X = np.concatenate((mnist_X_train, mnist_X_test), axis=0)
+    mnist_y = np.concatenate((mnist_y_train, mnist_y_test), axis=0)
+    print(f"MNIST cargado: {mnist_X.shape[0]} imágenes.")
+    return mnist_X, mnist_y
+
+
 def train_ocr_model():
     os.makedirs("models/", exist_ok=True)
 
-    npz_X, npz_y = load_npz_data(DATA_PATH, fraction=0.5)
+    # Cargar datos desde .npz y .zip
+    npz_X, npz_y = load_npz_data(DATA_PATH, fraction=0.1)
     zip_X, zip_y, zip_label_to_index = load_zip_data(DATA_ZIP_PATH, fraction=1.0, target_size=(28, 28))
 
     print("\nMapeo de etiquetas para el .zip:")
     for label, index in zip_label_to_index.items():
         print(f"Clase: {label} -> Índice: {index}")
 
-    if npz_X.size == 0 or zip_X.size == 0:
-        print("No se pudieron cargar datos de uno o ambos archivos. Abortando entrenamiento.")
+    # Cargar datos de MNIST
+    mnist_X, mnist_y = load_mnist_data()
+
+    # Mapear etiquetas de MNIST si es necesario
+    # Asumiendo que las etiquetas de MNIST son del 0 al 9 y no colisionan con otras etiquetas
+    # Si hay colisión, ajusta las etiquetas de MNIST en consecuencia
+    mnist_y_mapped = mnist_y  # Ajusta si es necesario
+
+    if npz_X.size == 0 or zip_X.size == 0 or mnist_X.size == 0:
+        print("No se pudieron cargar datos de uno o más archivos. Abortando entrenamiento.")
         return
 
-    X_train, X_test, y_train, y_test, num_classes = preprocess_and_split_data(npz_X, npz_y, zip_X, zip_y)
+    # Preprocesar y dividir los datos
+    X_train, X_test, y_train, y_test, num_classes = preprocess_and_split_data(
+        npz_X, npz_y, zip_X, zip_y, mnist_X=mnist_X, mnist_y=mnist_y_mapped
+    )
     X_train_prep, X_test_prep, y_train_prep, y_test_prep, num_classes = preprocess_data(
         X_train, X_test, y_train, y_test, num_classes
     )
 
+    # Construir el modelo
     model = build_model(X_train_prep.shape[1:], num_classes)
     model.summary()
 
+    # Compilar el modelo
     optimizer = Adam(learning_rate=0.0001)
     model.compile(optimizer=optimizer, loss='categorical_crossentropy', metrics=['accuracy'])
 
+    # Configurar el generador de datos
     datagen = ImageDataGenerator(
         rotation_range=10,
         width_shift_range=0.1,
@@ -225,28 +270,36 @@ def train_ocr_model():
     )
     datagen.fit(X_train_prep)
 
+    # Configurar callbacks
     reduce_lr = ReduceLROnPlateau(monitor='val_loss', factor=0.5, patience=3, min_lr=1e-6, verbose=1)
     early_stop = EarlyStopping(monitor='val_accuracy', patience=5, restore_best_weights=True, verbose=1)
     checkpoint = ModelCheckpoint(
         filepath="models/ocr_model_best.weights.h5", monitor='val_accuracy',
         save_best_only=True, verbose=1, save_weights_only=True
     )
+
+    # Entrenar el modelo
     history = model.fit(
         datagen.flow(X_train_prep, y_train_prep, batch_size=64),
-        steps_per_epoch=len(X_train_prep),
+        steps_per_epoch=len(X_train_prep) // 64,
         validation_data=(X_test_prep, y_test_prep),
         epochs=EPOCHS,
         callbacks=[reduce_lr, early_stop, checkpoint]
     )
 
+    # Cargar los mejores pesos y guardar el modelo completo
     model.load_weights("models/ocr_model_best.weights.h5")
     model.save(MODEL_WEIGHTS)
 
+    # Guardar el historial de entrenamiento
     os.makedirs(os.path.dirname(HISTORY_PATH), exist_ok=True)
     with open(HISTORY_PATH, 'wb') as f:
         pickle.dump(history.history, f)
 
     print("Modelo entrenado y guardado correctamente.")
+
+
+train_ocr_model = medir_tiempo(train_ocr_model)
 
 if __name__ == "__main__":
     train_ocr_model()

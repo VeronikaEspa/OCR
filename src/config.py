@@ -10,4 +10,4 @@ MODEL_WEIGHTS= "models/ocr_model.weights.h5"
 MODEL_WEIGHTS_BEST= "models/ocr_model_best.weights.h5"
 HISTORY_PATH = './models/training_history.pkl'
 
-EPOCHS = 15
+EPOCHS = 10

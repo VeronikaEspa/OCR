@@ -102,7 +102,7 @@ def splitting_letters_of_a_word():
             predicted_letter = class_names[predicted_class]
             letters.append(predicted_letter)
 
-        print(f"Palabra procesada: {''.join(letters)}")
+        print(f"Palabra procesada: {''.join(letters)} del archivo {word_image_path}")
 
 def load_trained_model():
     """

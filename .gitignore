@@ -1,3 +1,5 @@
 data/result
 data/testing
-data/training
+data/training/archive.zip
+data/training/character_fonts (with handwritten data).npz
+data/training/character_font.npz

@@ -4,7 +4,7 @@ from tensorflow.keras.callbacks import ReduceLROnPlateau, EarlyStopping
 from tensorflow.keras.optimizers import Adam
 import tensorflow as tf
 from performance import medir_tiempo
-from config import IMAGE_SIZE, MODEL_WEIGHTS, MODEL_WEIGHTS_BEST, EPOCHS
+from config import IMAGE_SIZE, MODEL_WEIGHTS
 
 @medir_tiempo
 def build_model(input_shape, num_classes):

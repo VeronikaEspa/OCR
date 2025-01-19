@@ -1,5 +1,3 @@
-# config.py
-
 IMAGE_SIZE = (32, 32)
 
 DATA_ZIP_PATH = "./data/training/english_alphabets.zip"

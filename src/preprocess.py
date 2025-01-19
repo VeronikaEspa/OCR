@@ -1,4 +1,3 @@
-# preprocess.py
 import numpy as np
 from PIL import Image, ImageOps
 from config import IMAGE_SIZE

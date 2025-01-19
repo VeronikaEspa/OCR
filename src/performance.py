@@ -1,4 +1,3 @@
-# performance.py
 import time
 import functools
 

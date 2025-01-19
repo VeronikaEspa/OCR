@@ -1,4 +1,3 @@
-# menu.py
 from train_model import train_model
 from predict import test_model_predictions, splitting_letters_of_a_word
 from visualizations import evaluate_model
